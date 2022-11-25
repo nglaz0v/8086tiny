@@ -151,7 +151,11 @@
 #ifdef NO_GRAPHICS
 #define SDL_KEYBOARD_DRIVER KEYBOARD_DRIVER
 #else
+#if SDL_MAJOR_VERSION == 1
 #define SDL_KEYBOARD_DRIVER sdl_screen ? SDL_PollEvent(&sdl_event) && (sdl_event.type == SDL_KEYDOWN || sdl_event.type == SDL_KEYUP) && (scratch_uint = sdl_event.key.keysym.unicode, scratch2_uint = sdl_event.key.keysym.mod, CAST(short)mem[0x4A6] = 0x400 + 0x800*!!(scratch2_uint & KMOD_ALT) + 0x1000*!!(scratch2_uint & KMOD_SHIFT) + 0x2000*!!(scratch2_uint & KMOD_CTRL) + 0x4000*(sdl_event.type == SDL_KEYUP) + ((!scratch_uint || scratch_uint > 0x7F) ? sdl_event.key.keysym.sym : scratch_uint), pc_interrupt(7)) : (KEYBOARD_DRIVER)
+#else // SDL_MAJOR_VERSION > 1
+#define SDL_KEYBOARD_DRIVER sdl_screen ? SDL_PollEvent(&sdl_event) && (sdl_event.type == SDL_KEYDOWN || sdl_event.type == SDL_KEYUP) && (scratch_uint = sdl_event.text.text, scratch2_uint = sdl_event.key.keysym.mod, CAST(short)mem[0x4A6] = 0x400 + 0x800*!!(scratch2_uint & KMOD_ALT) + 0x1000*!!(scratch2_uint & KMOD_SHIFT) + 0x2000*!!(scratch2_uint & KMOD_CTRL) + 0x4000*(sdl_event.type == SDL_KEYUP) + ((!scratch_uint || scratch_uint > 0x7F) ? sdl_event.key.keysym.sym : scratch_uint), pc_interrupt(7)) : (KEYBOARD_DRIVER)
+#endif // SDL_MAJOR_VERSION check
 #endif
 
 // Global variable definitions
@@ -165,6 +169,10 @@ struct timeb ms_clock;
 #ifndef NO_GRAPHICS
 SDL_AudioSpec sdl_audio = {44100, AUDIO_U8, 1, 0, 128};
 SDL_Surface *sdl_screen;
+#if SDL_MAJOR_VERSION > 1
+SDL_Window *window;
+SDL_Renderer *renderer;
+#endif // SDL_MAJOR_VERSION check
 SDL_Event sdl_event;
 unsigned short vid_addr_lookup[VIDEO_RAM_SIZE], cga_colors[4] = {0 /* Black */, 0x1F1F /* Cyan */, 0xE3E3 /* Magenta */, 0xFFFF /* White */};
 #endif
@@ -720,9 +728,15 @@ int main(int argc, char **argv)
 						vid_addr_lookup[i] = i / GRAPHICS_X * (GRAPHICS_X / 8) + (i / 2) % (GRAPHICS_X / 8) + 0x2000*(mem[0x4AC] ? (2 * i / GRAPHICS_X) % 2 : (4 * i / GRAPHICS_X) % 4);
 
 					SDL_Init(SDL_INIT_VIDEO);
+#if SDL_MAJOR_VERSION == 1
 					sdl_screen = SDL_SetVideoMode(GRAPHICS_X, GRAPHICS_Y, 8, 0);
 					SDL_EnableUNICODE(1);
 					SDL_EnableKeyRepeat(500, 30);
+#else // SDL_MAJOR_VERSION > 1
+					window = SDL_CreateWindow("8086tiny", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, GRAPHICS_X, GRAPHICS_Y, SDL_WINDOW_OPENGL);
+					sdl_screen = SDL_GetWindowSurface(window);
+					renderer = SDL_CreateRenderer(window, -1, 0);
+#endif // SDL_MAJOR_VERSION check
 				}
 
 				// Refresh SDL display from emulated graphics card video RAM
@@ -730,7 +744,11 @@ int main(int argc, char **argv)
 				for (int i = 0; i < GRAPHICS_X * GRAPHICS_Y / 4; i++)
 					((unsigned *)sdl_screen->pixels)[i] = pixel_colors[15 & (vid_mem_base[vid_addr_lookup[i]] >> 4*!(i & 1))];
 
+#if SDL_MAJOR_VERSION == 1
 				SDL_Flip(sdl_screen);
+#else // SDL_MAJOR_VERSION > 1
+				SDL_RenderPresent(renderer);
+#endif // SDL_MAJOR_VERSION check
 			}
 			else if (sdl_screen) // Application has gone back to text mode, so close the SDL window
 			{
