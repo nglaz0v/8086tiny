@@ -170,8 +170,8 @@ struct timeb ms_clock;
 SDL_AudioSpec sdl_audio = {44100, AUDIO_U8, 1, 0, 128};
 SDL_Surface *sdl_screen;
 #if SDL_MAJOR_VERSION > 1
-SDL_Window *window;
-SDL_Renderer *renderer;
+SDL_Window *sdl_window;
+SDL_Renderer *sdl_renderer;
 #endif // SDL_MAJOR_VERSION check
 SDL_Event sdl_event;
 unsigned short vid_addr_lookup[VIDEO_RAM_SIZE], cga_colors[4] = {0 /* Black */, 0x1F1F /* Cyan */, 0xE3E3 /* Magenta */, 0xFFFF /* White */};
@@ -733,9 +733,8 @@ int main(int argc, char **argv)
 					SDL_EnableUNICODE(1);
 					SDL_EnableKeyRepeat(500, 30);
 #else // SDL_MAJOR_VERSION > 1
-					window = SDL_CreateWindow("8086tiny", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, GRAPHICS_X, GRAPHICS_Y, SDL_WINDOW_OPENGL);
-					sdl_screen = SDL_GetWindowSurface(window);
-					renderer = SDL_CreateRenderer(window, -1, 0);
+					SDL_CreateWindowAndRenderer(640, 480, SDL_WINDOW_SHOWN, &sdl_window, &sdl_renderer);
+					sdl_screen = SDL_GetWindowSurface(sdl_window);
 #endif // SDL_MAJOR_VERSION check
 				}
 
@@ -747,7 +746,7 @@ int main(int argc, char **argv)
 #if SDL_MAJOR_VERSION == 1
 				SDL_Flip(sdl_screen);
 #else // SDL_MAJOR_VERSION > 1
-				SDL_RenderPresent(renderer);
+				SDL_RenderPresent(sdl_renderer);
 #endif // SDL_MAJOR_VERSION check
 			}
 			else if (sdl_screen) // Application has gone back to text mode, so close the SDL window
@@ -772,6 +771,10 @@ int main(int argc, char **argv)
 	}
 
 #ifndef NO_GRAPHICS
+#if SDL_MAJOR_VERSION > 1
+	SDL_DestroyWindow(sdl_window);
+	SDL_DestroyRenderer(sdl_renderer);
+#endif // SDL_MAJOR_VERSION check
 	SDL_Quit();
 #endif
 	return 0;
